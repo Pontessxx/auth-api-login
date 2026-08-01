@@ -1,0 +1,9 @@
+global using auth_api_login.Api.Extensions;
+global using auth_api_login.Api.Filters;
+global using auth_api_login.Application;
+global using auth_api_login.Infrastructure;
+global using Microsoft.AspNetCore.Authorization;
+global using Microsoft.AspNetCore.Mvc;
+global using Microsoft.AspNetCore.Mvc.ApiExplorer;
+global using Microsoft.OpenApi;
+global using Swashbuckle.AspNetCore.SwaggerGen;
