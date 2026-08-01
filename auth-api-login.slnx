@@ -1,3 +1,6 @@
 <Solution>
-  <Project Path="auth-api-login.csproj" />
+  <Project Path="auth-api-login.Domain/auth-api-login.Domain.csproj" />
+  <Project Path="auth-api-login.Application/auth-api-login.Application.csproj" />
+  <Project Path="auth-api-login.Infrastructure/auth-api-login.Infrastructure.csproj" />
+  <Project Path="auth-api-login.Api/auth-api-login.Api.csproj" />
 </Solution>
