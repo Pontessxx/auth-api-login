@@ -28,6 +28,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=${PSQL__DB};Username=${PSQL__USER};Password=${PSQL__PASS}
+      Jwt__Key: ${JWT_KEY}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__AccessTokenExpirationMinutes: ${JWT_ACCESS_TOKEN_EXPIRATION_MINUTES}
+      Jwt__RefreshTokenExpirationDays: ${JWT_REFRESH_TOKEN_EXPIRATION_DAYS}
+      Jwt__MaxActiveSessionsPerUser: ${JWT_MAX_ACTIVE_SESSIONS_PER_USER}
+      AdminSeed__Username: ${ADMIN_USERNAME}
+      AdminSeed__Email: ${ADMIN_EMAIL}
+      AdminSeed__Password: ${ADMIN_PASSWORD}
     ports:
       - "8080:8080"
     depends_on:

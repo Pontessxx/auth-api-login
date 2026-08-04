@@ -15,16 +15,7 @@ public static class OpenApiConfigurationExtension
                 Description = "API da minha aplicação"
             });
             c.UseInlineDefinitionsForEnums();
-            c.DocInclusionPredicate((docName, apiDesc) =>
-            {
-                if (!apiDesc.TryGetMethodInfo(out var methodInfo))
-                    return false;
-                var groupName = methodInfo.DeclaringType?
-                    .GetCustomAttributes(true)
-                    .OfType<ApiExplorerSettingsAttribute>()
-                    .FirstOrDefault()?.GroupName;
-                return groupName == docName;
-            });
+            c.DocInclusionPredicate((docName, apiDesc) => apiDesc.GroupName == docName);
             c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
                 Name = "Authorization",
@@ -35,6 +26,13 @@ public static class OpenApiConfigurationExtension
                 Description = "Insira o token JWT"
             });
             c.OperationFilter<AuthorizeOperationFilter>();
+
+            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            if (File.Exists(xmlPath))
+            {
+                c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
+            }
         });
         return services;
     }

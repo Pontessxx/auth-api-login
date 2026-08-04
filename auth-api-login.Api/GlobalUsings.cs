@@ -1,3 +1,5 @@
+global using System.Reflection;
+global using Asp.Versioning;
 global using auth_api_login.Api.Extensions;
 global using auth_api_login.Api.Filters;
 global using auth_api_login.Application;

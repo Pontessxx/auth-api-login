@@ -16,7 +16,7 @@ public class AuthorizeOperationFilter : IOperationFilter
         [
             new OpenApiSecurityRequirement
             {
-                [new OpenApiSecuritySchemeReference("Bearer", null)] = []
+                [new OpenApiSecuritySchemeReference("Bearer", context.Document)] = []
             }
         ];
     }
