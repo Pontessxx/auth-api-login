@@ -35,14 +35,7 @@ builder.Services
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
-    ?? throw new InvalidOperationException($"Seção de configuração '{JwtSettings.SectionName}' não encontrada.");
-
-if (Encoding.UTF8.GetByteCount(jwtSettings.Key) < 32)
-{
-    throw new InvalidOperationException(
-        "Jwt:Key ausente ou curta demais (mínimo 32 bytes). Defina-a pela variável de ambiente Jwt__Key — nunca em appsettings.json.");
-}
+JwtSettings jwtSettings = null!;
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -86,21 +79,37 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
+    ?? throw new InvalidOperationException($"Seção de configuração '{JwtSettings.SectionName}' não encontrada.");
+
+if (Encoding.UTF8.GetByteCount(jwtSettings.Key) < 32)
 {
+    throw new InvalidOperationException(
+        "Jwt:Key ausente ou curta demais (mínimo 32 bytes). Defina-a pela variável de ambiente Jwt__Key — nunca em appsettings.json.");
+}
+
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.MigrateAsync();
 
-    var adminEmail = builder.Configuration["AdminSeed:Email"] ?? "admin@admin.com";
+    var adminEmail = builder.Configuration["AdminSeed:Email"]
+        ?? throw new InvalidOperationException("AdminSeed:Email não configurado. Defina-a pela variável de ambiente AdminSeed__Email.");
     if (!await dbContext.Users.AnyAsync(u => u.Email == adminEmail))
     {
+        var adminUsername = builder.Configuration["AdminSeed:Username"]
+            ?? throw new InvalidOperationException("AdminSeed:Username não configurado. Defina-a pela variável de ambiente AdminSeed__Username.");
+        var adminPassword = builder.Configuration["AdminSeed:Password"]
+            ?? throw new InvalidOperationException("AdminSeed:Password não configurado. Defina-a pela variável de ambiente AdminSeed__Password.");
+
         var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
         dbContext.Users.Add(new User
         {
             Id = Guid.CreateVersion7(),
-            Username = builder.Configuration["AdminSeed:Username"] ?? "admin",
+            Username = adminUsername,
             Email = adminEmail,
-            PasswordHash = passwordHasher.Hash(builder.Configuration["AdminSeed:Password"] ?? "admin123"),
+            PasswordHash = passwordHasher.Hash(adminPassword),
             CreatedAt = DateTime.UtcNow
         });
         await dbContext.SaveChangesAsync();
