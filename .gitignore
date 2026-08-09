@@ -1,4 +1,5 @@
 .env
+auth-api-login.Api/appsettings.Development.json
 bin/
 obj/
 .vs/

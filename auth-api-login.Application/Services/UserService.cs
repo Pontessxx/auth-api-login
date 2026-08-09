@@ -8,10 +8,12 @@ namespace auth_api_login.Application.Services;
 public class UserService : IUserService
 {
     private readonly IUserRepository _userRepository;
+    private readonly ILogger<UserService> _logger;
 
-    public UserService(IUserRepository userRepository)
+    public UserService(IUserRepository userRepository, ILogger<UserService> logger)
     {
         _userRepository = userRepository;
+        _logger = logger;
     }
 
     public async Task<UserResponse> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -32,6 +34,10 @@ public class UserService : IUserService
             var existingUser = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
             if (existingUser is not null)
             {
+                _logger.LogWarning(
+                    "Atualização recusada para o usuário {UserId}: e-mail {Email} já está em uso.",
+                    id,
+                    request.Email);
                 throw new EmailAlreadyExistsException(request.Email);
             }
         }
@@ -40,6 +46,7 @@ public class UserService : IUserService
         user.Email = request.Email;
 
         await _userRepository.UpdateAsync(user, cancellationToken);
+        _logger.LogInformation("Usuário {UserId} atualizado.", id);
 
         return user.ToResponse();
     }
@@ -50,5 +57,6 @@ public class UserService : IUserService
             ?? throw new UserNotFoundException(id);
 
         await _userRepository.DeleteAsync(user, cancellationToken);
+        _logger.LogInformation("Usuário {UserId} excluído.", id);
     }
 }

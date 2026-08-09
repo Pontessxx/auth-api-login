@@ -1,13 +1,7 @@
-using System.Security.Claims;
-using System.Text;
-using auth_api_login.Application.Common;
 using auth_api_login.Application.Interfaces;
 using auth_api_login.Domain.Entities;
-using auth_api_login.Domain.Interfaces;
 using auth_api_login.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,59 +28,11 @@ builder.Services
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-
-JwtSettings jwtSettings = null!;
-
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.MapInboundClaims = false;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidIssuer = jwtSettings.Issuer,
-            ValidateAudience = true,
-            ValidAudience = jwtSettings.Audience,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromSeconds(30)
-        };
-        options.Events = new JwtBearerEvents
-        {
-            OnTokenValidated = async context =>
-            {
-                var jti = context.Principal?.FindFirstValue("jti");
-                if (string.IsNullOrEmpty(jti))
-                {
-                    context.Fail("Token inválido.");
-                    return;
-                }
-
-                var tokenBlacklistRepository = context.HttpContext.RequestServices
-                    .GetRequiredService<ITokenBlacklistRepository>();
-
-                if (await tokenBlacklistRepository.IsRevokedAsync(jti, context.HttpContext.RequestAborted))
-                {
-                    context.Fail("Token revogado.");
-                }
-            }
-        };
-    });
-
-builder.Services.AddAuthorization();
+builder.Services.AddJwtAuthenticationConfig();
 
 var app = builder.Build();
 
-jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
-    ?? throw new InvalidOperationException($"Seção de configuração '{JwtSettings.SectionName}' não encontrada.");
-
-if (Encoding.UTF8.GetByteCount(jwtSettings.Key) < 32)
-{
-    throw new InvalidOperationException(
-        "Jwt:Key ausente ou curta demais (mínimo 32 bytes). Defina-a pela variável de ambiente Jwt__Key — nunca em appsettings.json.");
-}
+app.ValidateJwtSettings();
 
 if (!app.Environment.IsEnvironment("Testing"))
 {

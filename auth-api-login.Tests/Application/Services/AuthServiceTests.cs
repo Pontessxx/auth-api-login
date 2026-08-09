@@ -21,7 +21,8 @@ public class AuthServiceTests
         _refreshTokenGenerator.Object,
         _tokenBlacklistRepository.Object,
         _refreshTokenRepository.Object,
-        _jwtSettings);
+        _jwtSettings,
+        NullLogger<AuthService>.Instance);
 
     private void SetupHappyTokenPath(int activeSessions = 0)
     {

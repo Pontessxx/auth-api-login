@@ -1,11 +1,17 @@
 global using System.Reflection;
+global using System.Security.Claims;
+global using System.Text;
 global using Asp.Versioning;
 global using auth_api_login.Api.Extensions;
 global using auth_api_login.Api.Filters;
 global using auth_api_login.Application;
+global using auth_api_login.Application.Common;
+global using auth_api_login.Domain.Interfaces;
 global using auth_api_login.Infrastructure;
+global using Microsoft.AspNetCore.Authentication.JwtBearer;
 global using Microsoft.AspNetCore.Authorization;
 global using Microsoft.AspNetCore.Mvc;
 global using Microsoft.AspNetCore.Mvc.ApiExplorer;
+global using Microsoft.IdentityModel.Tokens;
 global using Microsoft.OpenApi;
 global using Swashbuckle.AspNetCore.SwaggerGen;

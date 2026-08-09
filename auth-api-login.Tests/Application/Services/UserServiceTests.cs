@@ -4,7 +4,7 @@ public class UserServiceTests
 {
     private readonly Mock<IUserRepository> _userRepository = new();
 
-    private UserService CreateService() => new(_userRepository.Object);
+    private UserService CreateService() => new(_userRepository.Object, NullLogger<UserService>.Instance);
 
     [Fact]
     public async Task GetByIdAsync_WhenUserExists_ReturnsUserResponse()
