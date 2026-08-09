@@ -52,12 +52,13 @@ public class AuthServiceTests
 
         var service = CreateService();
 
-        var response = await service.RegisterAsync(request, CancellationToken.None);
+        var result = await service.RegisterAsync(request, CancellationToken.None);
 
-        Assert.Equal("access-token", response.AccessToken);
-        Assert.Equal("raw-refresh-token", response.RefreshToken);
-        Assert.Equal("john", response.User.Username);
-        Assert.Equal("john@test.com", response.User.Email);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("access-token", result.Value.AccessToken);
+        Assert.Equal("raw-refresh-token", result.Value.RefreshToken);
+        Assert.Equal("john", result.Value.User.Username);
+        Assert.Equal("john@test.com", result.Value.User.Email);
 
         _userRepository.Verify(x => x.AddAsync(
             It.Is<User>(u => u.Username == "john" && u.Email == "john@test.com" && u.PasswordHash == "hashed-password"),
@@ -66,7 +67,7 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task RegisterAsync_WhenEmailAlreadyExists_ThrowsEmailAlreadyExistsException()
+    public async Task RegisterAsync_WhenEmailAlreadyExists_ReturnsConflict()
     {
         var request = new RegisterRequest { Username = "john", Email = "john@test.com", Password = "1234567" };
         _userRepository
@@ -75,12 +76,15 @@ public class AuthServiceTests
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<EmailAlreadyExistsException>(() => service.RegisterAsync(request, CancellationToken.None));
+        var result = await service.RegisterAsync(request, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Conflict, result.Error!.Value.Type);
         _userRepository.Verify(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task LoginAsync_WhenUserNotFound_ThrowsInvalidCredentialsException()
+    public async Task LoginAsync_WhenUserNotFound_ReturnsUnauthorized()
     {
         var request = new LoginRequest { Email = "missing@test.com", Password = "1234567" };
         _userRepository
@@ -89,11 +93,14 @@ public class AuthServiceTests
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => service.LoginAsync(request, CancellationToken.None));
+        var result = await service.LoginAsync(request, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Unauthorized, result.Error!.Value.Type);
     }
 
     [Fact]
-    public async Task LoginAsync_WhenPasswordInvalid_ThrowsInvalidCredentialsException()
+    public async Task LoginAsync_WhenPasswordInvalid_ReturnsUnauthorized()
     {
         var request = new LoginRequest { Email = "john@test.com", Password = "wrong" };
         var user = new User { Email = request.Email, PasswordHash = "hashed" };
@@ -104,7 +111,10 @@ public class AuthServiceTests
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => service.LoginAsync(request, CancellationToken.None));
+        var result = await service.LoginAsync(request, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Unauthorized, result.Error!.Value.Type);
     }
 
     [Fact]
@@ -120,10 +130,11 @@ public class AuthServiceTests
 
         var service = CreateService();
 
-        var response = await service.LoginAsync(request, CancellationToken.None);
+        var result = await service.LoginAsync(request, CancellationToken.None);
 
-        Assert.Equal("access-token", response.AccessToken);
-        Assert.Equal(user.Id, response.User.Id);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("access-token", result.Value.AccessToken);
+        Assert.Equal(user.Id, result.Value.User.Id);
         _userRepository.Verify(x => x.AddAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -169,7 +180,7 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task RefreshAsync_WhenTokenNotFound_ThrowsInvalidCredentialsException()
+    public async Task RefreshAsync_WhenTokenNotFound_ReturnsUnauthorized()
     {
         var request = new RefreshRequest { RefreshToken = "raw" };
         _refreshTokenGenerator.Setup(x => x.Hash(request.RefreshToken)).Returns("hash");
@@ -179,11 +190,14 @@ public class AuthServiceTests
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => service.RefreshAsync(request, CancellationToken.None));
+        var result = await service.RefreshAsync(request, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Unauthorized, result.Error!.Value.Type);
     }
 
     [Fact]
-    public async Task RefreshAsync_WhenTokenAlreadyRevoked_RevokesAllActiveSessionsAndThrows()
+    public async Task RefreshAsync_WhenTokenAlreadyRevoked_RevokesAllActiveSessionsAndReturnsUnauthorized()
     {
         var request = new RefreshRequest { RefreshToken = "raw" };
         var userId = Guid.NewGuid();
@@ -196,14 +210,17 @@ public class AuthServiceTests
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => service.RefreshAsync(request, CancellationToken.None));
+        var result = await service.RefreshAsync(request, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Unauthorized, result.Error!.Value.Type);
 
         _refreshTokenRepository.Verify(x => x.RevokeAllActiveAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
         _userRepository.Verify(x => x.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task RefreshAsync_WhenTokenExpired_ThrowsInvalidCredentialsException()
+    public async Task RefreshAsync_WhenTokenExpired_ReturnsUnauthorized()
     {
         var request = new RefreshRequest { RefreshToken = "raw" };
         var storedToken = new RefreshToken { UserId = Guid.NewGuid(), RevokedAt = null, ExpiresAt = DateTime.UtcNow.AddMinutes(-1) };
@@ -215,12 +232,15 @@ public class AuthServiceTests
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => service.RefreshAsync(request, CancellationToken.None));
+        var result = await service.RefreshAsync(request, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Unauthorized, result.Error!.Value.Type);
         _refreshTokenRepository.Verify(x => x.RevokeAllActiveAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task RefreshAsync_WhenUserNotFound_ThrowsInvalidCredentialsException()
+    public async Task RefreshAsync_WhenUserNotFound_ReturnsUnauthorized()
     {
         var request = new RefreshRequest { RefreshToken = "raw" };
         var storedToken = new RefreshToken { UserId = Guid.NewGuid(), RevokedAt = null, ExpiresAt = DateTime.UtcNow.AddDays(1) };
@@ -235,7 +255,10 @@ public class AuthServiceTests
 
         var service = CreateService();
 
-        await Assert.ThrowsAsync<InvalidCredentialsException>(() => service.RefreshAsync(request, CancellationToken.None));
+        var result = await service.RefreshAsync(request, CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(ResultErrorType.Unauthorized, result.Error!.Value.Type);
     }
 
     [Fact]
@@ -260,10 +283,11 @@ public class AuthServiceTests
 
         var service = CreateService();
 
-        var response = await service.RefreshAsync(request, CancellationToken.None);
+        var result = await service.RefreshAsync(request, CancellationToken.None);
 
-        Assert.Equal("access-token", response.AccessToken);
-        Assert.Equal("raw-refresh-token", response.RefreshToken);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("access-token", result.Value.AccessToken);
+        Assert.Equal("raw-refresh-token", result.Value.RefreshToken);
         Assert.NotNull(capturedNewToken);
         _refreshTokenRepository.Verify(x => x.RevokeAsync(storedToken, capturedNewToken!.Id, It.IsAny<CancellationToken>()), Times.Once);
     }

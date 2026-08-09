@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using auth_api_login.Application.Interfaces;
-
 namespace auth_api_login.Infrastructure.Security;
 
 public class PasswordHasher : IPasswordHasher

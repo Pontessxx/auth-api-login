@@ -1,5 +1,3 @@
-using Microsoft.EntityFrameworkCore;
-
 namespace auth_api_login.Tests.Infrastructure.Persistence;
 
 internal static class TestDbContextFactory

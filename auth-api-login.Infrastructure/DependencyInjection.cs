@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Options;
-
 namespace auth_api_login.Infrastructure;
 
 public static class DependencyInjection

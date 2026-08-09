@@ -1,5 +1,3 @@
-using auth_api_login.Application.DTOs.Users;
-
 namespace auth_api_login.Application.Mappings;
 
 public static class UserMappings

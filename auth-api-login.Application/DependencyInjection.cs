@@ -1,4 +1,3 @@
-using auth_api_login.Application.Interfaces;
 using auth_api_login.Application.Services;
 
 namespace auth_api_login.Application;

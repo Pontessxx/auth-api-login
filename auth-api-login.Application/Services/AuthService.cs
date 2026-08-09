@@ -1,9 +1,3 @@
-using auth_api_login.Application.Common;
-using auth_api_login.Application.DTOs.Auth;
-using auth_api_login.Application.Interfaces;
-using auth_api_login.Application.Mappings;
-using auth_api_login.Domain.Exceptions;
-
 namespace auth_api_login.Application.Services;
 
 public class AuthService : IAuthService
@@ -37,13 +31,13 @@ public class AuthService : IAuthService
         _logger = logger;
     }
 
-    public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<AuthResponse>> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
         var existingUser = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
         if (existingUser is not null)
         {
             _logger.LogWarning("Registro recusado: já existe um usuário com o e-mail {Email}.", request.Email);
-            throw new EmailAlreadyExistsException(request.Email);
+            return Result<AuthResponse>.Conflict($"Já existe um usuário cadastrado com o e-mail '{request.Email}'.");
         }
 
         var user = new User
@@ -58,37 +52,39 @@ public class AuthService : IAuthService
         await _userRepository.AddAsync(user, cancellationToken);
         _logger.LogInformation("Usuário {UserId} registrado com sucesso ({Email}).", user.Id, user.Email);
 
-        return await BuildAuthResponseAsync(user, cancellationToken);
+        var (response, _) = await BuildAuthResponseInternalAsync(user, cancellationToken);
+        return Result<AuthResponse>.Success(response);
     }
 
-    public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<AuthResponse>> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
         if (user is null)
         {
             _logger.LogWarning("Login falhou: nenhum usuário encontrado para o e-mail {Email}.", request.Email);
-            throw new InvalidCredentialsException();
+            return Result<AuthResponse>.Unauthorized("E-mail ou senha inválidos.");
         }
 
         if (!_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
             _logger.LogWarning("Login falhou: senha inválida para o usuário {UserId}.", user.Id);
-            throw new InvalidCredentialsException();
+            return Result<AuthResponse>.Unauthorized("E-mail ou senha inválidos.");
         }
 
         _logger.LogInformation("Usuário {UserId} autenticado com sucesso.", user.Id);
 
-        return await BuildAuthResponseAsync(user, cancellationToken);
+        var (response, _) = await BuildAuthResponseInternalAsync(user, cancellationToken);
+        return Result<AuthResponse>.Success(response);
     }
 
-    public async Task<AuthResponse> RefreshAsync(RefreshRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<AuthResponse>> RefreshAsync(RefreshRequest request, CancellationToken cancellationToken = default)
     {
         var tokenHash = _refreshTokenGenerator.Hash(request.RefreshToken);
         var storedToken = await _refreshTokenRepository.GetByHashAsync(tokenHash, cancellationToken);
         if (storedToken is null)
         {
             _logger.LogWarning("Refresh falhou: token não reconhecido.");
-            throw new InvalidCredentialsException();
+            return Result<AuthResponse>.Unauthorized("E-mail ou senha inválidos.");
         }
 
         if (storedToken.RevokedAt is not null)
@@ -99,27 +95,27 @@ public class AuthService : IAuthService
                 "Reuso de refresh token detectado para o usuário {UserId}; todas as sessões foram revogadas.",
                 storedToken.UserId);
             await _refreshTokenRepository.RevokeAllActiveAsync(storedToken.UserId, cancellationToken);
-            throw new InvalidCredentialsException();
+            return Result<AuthResponse>.Unauthorized("E-mail ou senha inválidos.");
         }
 
         if (storedToken.ExpiresAt <= DateTime.UtcNow)
         {
             _logger.LogWarning("Refresh falhou: token expirado para o usuário {UserId}.", storedToken.UserId);
-            throw new InvalidCredentialsException();
+            return Result<AuthResponse>.Unauthorized("E-mail ou senha inválidos.");
         }
 
         var user = await _userRepository.GetByIdAsync(storedToken.UserId, cancellationToken);
         if (user is null)
         {
             _logger.LogWarning("Refresh falhou: usuário {UserId} não encontrado.", storedToken.UserId);
-            throw new InvalidCredentialsException();
+            return Result<AuthResponse>.Unauthorized("E-mail ou senha inválidos.");
         }
 
         var (response, newRefreshToken) = await BuildAuthResponseInternalAsync(user, cancellationToken);
         await _refreshTokenRepository.RevokeAsync(storedToken, newRefreshToken.Id, cancellationToken);
         _logger.LogInformation("Tokens renovados com sucesso para o usuário {UserId}.", user.Id);
 
-        return response;
+        return Result<AuthResponse>.Success(response);
     }
 
     public async Task LogoutAsync(Guid userId, string jti, DateTime expiresAt, CancellationToken cancellationToken = default)
@@ -127,12 +123,6 @@ public class AuthService : IAuthService
         await _tokenBlacklistRepository.RevokeAsync(jti, expiresAt, cancellationToken);
         await _refreshTokenRepository.RevokeAllActiveAsync(userId, cancellationToken);
         _logger.LogInformation("Logout realizado: todas as sessões do usuário {UserId} foram revogadas.", userId);
-    }
-
-    private async Task<AuthResponse> BuildAuthResponseAsync(User user, CancellationToken cancellationToken)
-    {
-        var (response, _) = await BuildAuthResponseInternalAsync(user, cancellationToken);
-        return response;
     }
 
     private async Task<(AuthResponse Response, RefreshToken RefreshToken)> BuildAuthResponseInternalAsync(User user, CancellationToken cancellationToken)

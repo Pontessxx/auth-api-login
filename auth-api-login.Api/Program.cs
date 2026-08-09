@@ -1,4 +1,3 @@
-using auth_api_login.Application.Interfaces;
 using auth_api_login.Domain.Entities;
 using auth_api_login.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -6,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 
-builder.Services.AddControllers(options => options.Filters.Add<DomainExceptionFilter>());
+builder.Services.AddControllers();
 
 builder.Services.AddOpenApiConfig();
 builder.Services.AddFrontendCorsConfig(builder.Configuration);

@@ -1,5 +1,4 @@
 using Asp.Versioning.ApiExplorer;
-using Microsoft.Extensions.Options;
 
 namespace auth_api_login.Tests.Api.Integration;
 

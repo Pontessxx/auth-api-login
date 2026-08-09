@@ -1,6 +1,4 @@
-using System.Security.Claims;
 using auth_api_login.Application.DTOs.Users;
-using auth_api_login.Application.Interfaces;
 
 namespace auth_api_login.Controllers.V1;
 
@@ -8,9 +6,10 @@ namespace auth_api_login.Controllers.V1;
 [ApiController]
 [ApiVersion(1)]
 [Route("api/v{version:apiVersion}/user")]
-public class UserController(IUserService userService) : ControllerBase
+public class UserController(IUserService userService, ILogger<UserController> logger) : ControllerBase
 {
     private readonly IUserService _userService = userService;
+    private readonly ILogger<UserController> _logger = logger;
 
     /// <summary>Retorna os dados do usuário autenticado.</summary>
     /// <remarks>Rota autorizada — requer um Bearer token válido.</remarks>
@@ -19,16 +18,22 @@ public class UserController(IUserService userService) : ControllerBase
     [Authorize]
     [HttpGet("me")]
     [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<UserResponse>> GetMe(CancellationToken cancellationToken)
     {
         if (!TryGetUserId(out var userId))
         {
-            return Unauthorized();
+            _logger.LogWarning("Requisição rejeitada: claim de usuário ausente ou inválida no token.");
+            return ResultExtensions.UnauthorizedProblem("Usuário precisa estar autenticado.");
         }
 
-        var response = await _userService.GetByIdAsync(userId, cancellationToken);
-        return Ok(response);
+        var result = await _userService.GetByIdAsync(userId, cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Ok(result.Value);
+        }
+
+        return result.ToProblem();
     }
 
     /// <summary>Atualiza o username e o e-mail do usuário autenticado.</summary>
@@ -40,20 +45,26 @@ public class UserController(IUserService userService) : ControllerBase
     [Authorize]
     [HttpPut("edit")]
     [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<UserResponse>> UpdateMe(
         [FromBody] UpdateUserRequest request,
         CancellationToken cancellationToken)
     {
         if (!TryGetUserId(out var userId))
         {
-            return Unauthorized();
+            _logger.LogWarning("Requisição rejeitada: claim de usuário ausente ou inválida no token.");
+            return ResultExtensions.UnauthorizedProblem("Usuário precisa estar autenticado.");
         }
 
-        var response = await _userService.UpdateAsync(userId, request, cancellationToken);
-        return Ok(response);
+        var result = await _userService.UpdateAsync(userId, request, cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Ok(result.Value);
+        }
+
+        return result.ToProblem();
     }
 
     /// <summary>Exclui a conta do usuário autenticado.</summary>
@@ -63,16 +74,22 @@ public class UserController(IUserService userService) : ControllerBase
     [Authorize]
     [HttpDelete("remove")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> DeleteMe(CancellationToken cancellationToken)
     {
         if (!TryGetUserId(out var userId))
         {
-            return Unauthorized();
+            _logger.LogWarning("Requisição rejeitada: claim de usuário ausente ou inválida no token.");
+            return ResultExtensions.UnauthorizedProblem("Usuário precisa estar autenticado.");
         }
 
-        await _userService.DeleteAsync(userId, cancellationToken);
-        return NoContent();
+        var result = await _userService.DeleteAsync(userId, cancellationToken);
+        if (result.IsSuccess)
+        {
+            return NoContent();
+        }
+
+        return result.ToProblem();
     }
 
     private bool TryGetUserId(out Guid userId)

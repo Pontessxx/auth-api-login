@@ -1,7 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using auth_api_login.Application.DTOs.Auth;
-using auth_api_login.Application.Interfaces;
 
 namespace auth_api_login.Controllers.V1;
 
@@ -9,9 +7,10 @@ namespace auth_api_login.Controllers.V1;
 [ApiController]
 [ApiVersion(1)]
 [Route("api/v{version:apiVersion}/auth-service")]
-public class AuthController(IAuthService authService) : ControllerBase
+public class AuthController(IAuthService authService, ILogger<AuthController> logger) : ControllerBase
 {
     private readonly IAuthService _authService = authService;
+    private readonly ILogger<AuthController> _logger = logger;
 
     /// <summary>Cria um novo usuário e retorna o token de acesso.</summary>
     /// <remarks>Rota anônima — não requer autenticação.</remarks>
@@ -21,14 +20,19 @@ public class AuthController(IAuthService authService) : ControllerBase
     [AllowAnonymous]
     [HttpPost("register")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<AuthResponse>> Register(
         [FromBody] RegisterRequest request,
         CancellationToken cancellationToken)
     {
-        var response = await _authService.RegisterAsync(request, cancellationToken);
-        return StatusCode(StatusCodes.Status201Created, response);
+        var result = await _authService.RegisterAsync(request, cancellationToken);
+        if (result.IsSuccess)
+        {
+            return StatusCode(StatusCodes.Status201Created, result.Value);
+        }
+
+        return result.ToProblem();
     }
 
     /// <summary>Autentica um usuário e retorna o token de acesso.</summary>
@@ -39,14 +43,19 @@ public class AuthController(IAuthService authService) : ControllerBase
     [AllowAnonymous]
     [HttpPost("login")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AuthResponse>> Login(
         [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
     {
-        var response = await _authService.LoginAsync(request, cancellationToken);
-        return Ok(response);
+        var result = await _authService.LoginAsync(request, cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Ok(result.Value);
+        }
+
+        return result.ToProblem();
     }
 
     /// <summary>Troca um refresh token válido por um novo par de tokens.</summary>
@@ -57,14 +66,19 @@ public class AuthController(IAuthService authService) : ControllerBase
     [AllowAnonymous]
     [HttpPost("refresh")]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AuthResponse>> Refresh(
         [FromBody] RefreshRequest request,
         CancellationToken cancellationToken)
     {
-        var response = await _authService.RefreshAsync(request, cancellationToken);
-        return Ok(response);
+        var result = await _authService.RefreshAsync(request, cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Ok(result.Value);
+        }
+
+        return result.ToProblem();
     }
 
     /// <summary>Encerra a sessão do usuário autenticado por completo.</summary>
@@ -74,7 +88,7 @@ public class AuthController(IAuthService authService) : ControllerBase
     [Authorize]
     [HttpDelete("logout")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
         var jti = User.FindFirstValue("jti");
@@ -82,7 +96,8 @@ public class AuthController(IAuthService authService) : ControllerBase
         var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
         if (string.IsNullOrEmpty(jti) || !long.TryParse(expClaim, out var expUnixSeconds) || !Guid.TryParse(sub, out var userId))
         {
-            return Unauthorized();
+            _logger.LogWarning("Logout rejeitado: claims de usuário ausentes ou inválidas no token.");
+            return ResultExtensions.UnauthorizedProblem("Usuário precisa estar autenticado.");
         }
 
         var expiresAt = DateTimeOffset.FromUnixTimeSeconds(expUnixSeconds).UtcDateTime;
@@ -97,14 +112,15 @@ public class AuthController(IAuthService authService) : ControllerBase
     [Authorize]
     [HttpGet("validate")]
     [ProducesResponseType(typeof(ValidateResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public IActionResult Validate()
     {
         var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
         var expClaim = User.FindFirstValue("exp");
         if (!Guid.TryParse(sub, out var userId) || !long.TryParse(expClaim, out var expUnixSeconds))
         {
-            return Unauthorized();
+            _logger.LogWarning("Validate rejeitado: claims de usuário ausentes ou inválidas no token.");
+            return ResultExtensions.UnauthorizedProblem("Usuário precisa estar autenticado.");
         }
 
         var response = new ValidateResponse

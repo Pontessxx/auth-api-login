@@ -1,7 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
-
 namespace auth_api_login.Tests.Api.Controllers;
 
 public class AuthControllerTests
@@ -10,7 +6,7 @@ public class AuthControllerTests
 
     private AuthController CreateController(ClaimsPrincipal? user = null)
     {
-        var controller = new AuthController(_authService.Object)
+        var controller = new AuthController(_authService.Object, NullLogger<AuthController>.Instance)
         {
             ControllerContext = new ControllerContext
             {
@@ -34,7 +30,7 @@ public class AuthControllerTests
     {
         var request = new RegisterRequest { Username = "john", Email = "john@test.com", Password = "1234567" };
         var response = SampleAuthResponse();
-        _authService.Setup(x => x.RegisterAsync(request, It.IsAny<CancellationToken>())).ReturnsAsync(response);
+        _authService.Setup(x => x.RegisterAsync(request, It.IsAny<CancellationToken>())).ReturnsAsync(Result<AuthResponse>.Success(response));
 
         var controller = CreateController();
         var result = await controller.Register(request, CancellationToken.None);
@@ -49,7 +45,7 @@ public class AuthControllerTests
     {
         var request = new LoginRequest { Email = "john@test.com", Password = "1234567" };
         var response = SampleAuthResponse();
-        _authService.Setup(x => x.LoginAsync(request, It.IsAny<CancellationToken>())).ReturnsAsync(response);
+        _authService.Setup(x => x.LoginAsync(request, It.IsAny<CancellationToken>())).ReturnsAsync(Result<AuthResponse>.Success(response));
 
         var controller = CreateController();
         var result = await controller.Login(request, CancellationToken.None);
@@ -63,13 +59,21 @@ public class AuthControllerTests
     {
         var request = new RefreshRequest { RefreshToken = "raw-token" };
         var response = SampleAuthResponse();
-        _authService.Setup(x => x.RefreshAsync(request, It.IsAny<CancellationToken>())).ReturnsAsync(response);
+        _authService.Setup(x => x.RefreshAsync(request, It.IsAny<CancellationToken>())).ReturnsAsync(Result<AuthResponse>.Success(response));
 
         var controller = CreateController();
         var result = await controller.Refresh(request, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         Assert.Same(response, okResult.Value);
+    }
+
+    private static void AssertUnauthorizedProblem(IActionResult? result)
+    {
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status401Unauthorized, objectResult.StatusCode);
+        var problem = Assert.IsType<ProblemDetails>(objectResult.Value);
+        Assert.Equal("Usuário precisa estar autenticado.", problem.Title);
     }
 
     private static ClaimsPrincipal BuildPrincipal(string? jti, string? exp, string? sub)
@@ -108,7 +112,7 @@ public class AuthControllerTests
         var controller = CreateController(user);
         var result = await controller.Logout(CancellationToken.None);
 
-        Assert.IsType<UnauthorizedResult>(result);
+        AssertUnauthorizedProblem(result);
         _authService.Verify(x => x.LogoutAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -120,7 +124,7 @@ public class AuthControllerTests
         var controller = CreateController(user);
         var result = await controller.Logout(CancellationToken.None);
 
-        Assert.IsType<UnauthorizedResult>(result);
+        AssertUnauthorizedProblem(result);
     }
 
     [Fact]
@@ -132,7 +136,7 @@ public class AuthControllerTests
         var controller = CreateController(user);
         var result = await controller.Logout(CancellationToken.None);
 
-        Assert.IsType<UnauthorizedResult>(result);
+        AssertUnauthorizedProblem(result);
     }
 
     [Fact]
@@ -160,7 +164,7 @@ public class AuthControllerTests
         var controller = CreateController(user);
         var result = controller.Validate();
 
-        Assert.IsType<UnauthorizedResult>(result);
+        AssertUnauthorizedProblem(result);
     }
 
     [Fact]
@@ -171,6 +175,6 @@ public class AuthControllerTests
         var controller = CreateController(user);
         var result = controller.Validate();
 
-        Assert.IsType<UnauthorizedResult>(result);
+        AssertUnauthorizedProblem(result);
     }
 }

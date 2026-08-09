@@ -1,9 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using auth_api_login.Application.Common;
-using auth_api_login.Application.Interfaces;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace auth_api_login.Infrastructure.Security;

@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace auth_api_login.Application.DTOs.Users;
 
 public class UpdateUserRequest

@@ -1,6 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
-using Microsoft.Extensions.Options;
-
 namespace auth_api_login.Tests.Infrastructure.Security;
 
 public class JwtTokenGeneratorTests

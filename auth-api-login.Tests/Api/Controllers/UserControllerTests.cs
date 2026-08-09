@@ -1,6 +1,3 @@
-using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
-
 namespace auth_api_login.Tests.Api.Controllers;
 
 public class UserControllerTests
@@ -9,7 +6,7 @@ public class UserControllerTests
 
     private UserController CreateController(ClaimsPrincipal? user = null)
     {
-        return new UserController(_userService.Object)
+        return new UserController(_userService.Object, NullLogger<UserController>.Instance)
         {
             ControllerContext = new ControllerContext
             {
@@ -24,6 +21,14 @@ public class UserControllerTests
     private static ClaimsPrincipal BuildPrincipalWithNameIdentifier(Guid userId) =>
         new(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId.ToString())]));
 
+    private static void AssertUnauthorizedProblem(IActionResult? result)
+    {
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status401Unauthorized, objectResult.StatusCode);
+        var problem = Assert.IsType<ProblemDetails>(objectResult.Value);
+        Assert.Equal("Usuário precisa estar autenticado.", problem.Title);
+    }
+
     private static UserResponse SampleResponse(Guid id) => new()
     {
         Id = id,
@@ -37,7 +42,7 @@ public class UserControllerTests
     {
         var userId = Guid.NewGuid();
         var response = SampleResponse(userId);
-        _userService.Setup(x => x.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(response);
+        _userService.Setup(x => x.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(Result<UserResponse>.Success(response));
 
         var controller = CreateController(BuildPrincipalWithSub(userId));
         var result = await controller.GetMe(CancellationToken.None);
@@ -52,7 +57,7 @@ public class UserControllerTests
         var controller = CreateController();
         var result = await controller.GetMe(CancellationToken.None);
 
-        Assert.IsType<UnauthorizedResult>(result.Result);
+        AssertUnauthorizedProblem(result.Result);
     }
 
     [Fact]
@@ -60,7 +65,7 @@ public class UserControllerTests
     {
         var userId = Guid.NewGuid();
         var response = SampleResponse(userId);
-        _userService.Setup(x => x.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(response);
+        _userService.Setup(x => x.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(Result<UserResponse>.Success(response));
 
         var controller = CreateController(BuildPrincipalWithNameIdentifier(userId));
         var result = await controller.GetMe(CancellationToken.None);
@@ -75,7 +80,7 @@ public class UserControllerTests
         var userId = Guid.NewGuid();
         var request = new UpdateUserRequest { Username = "new-name", Email = "new@test.com" };
         var response = SampleResponse(userId);
-        _userService.Setup(x => x.UpdateAsync(userId, request, It.IsAny<CancellationToken>())).ReturnsAsync(response);
+        _userService.Setup(x => x.UpdateAsync(userId, request, It.IsAny<CancellationToken>())).ReturnsAsync(Result<UserResponse>.Success(response));
 
         var controller = CreateController(BuildPrincipalWithSub(userId));
         var result = await controller.UpdateMe(request, CancellationToken.None);
@@ -92,7 +97,7 @@ public class UserControllerTests
 
         var result = await controller.UpdateMe(request, CancellationToken.None);
 
-        Assert.IsType<UnauthorizedResult>(result.Result);
+        AssertUnauthorizedProblem(result.Result);
         _userService.Verify(x => x.UpdateAsync(It.IsAny<Guid>(), It.IsAny<UpdateUserRequest>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -100,6 +105,7 @@ public class UserControllerTests
     public async Task DeleteMe_WhenAuthorized_ReturnsNoContent()
     {
         var userId = Guid.NewGuid();
+        _userService.Setup(x => x.DeleteAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(Result.Success());
         var controller = CreateController(BuildPrincipalWithSub(userId));
 
         var result = await controller.DeleteMe(CancellationToken.None);
@@ -115,7 +121,7 @@ public class UserControllerTests
 
         var result = await controller.DeleteMe(CancellationToken.None);
 
-        Assert.IsType<UnauthorizedResult>(result);
+        AssertUnauthorizedProblem(result);
         _userService.Verify(x => x.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

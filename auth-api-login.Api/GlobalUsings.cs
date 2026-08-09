@@ -6,6 +6,7 @@ global using auth_api_login.Api.Extensions;
 global using auth_api_login.Api.Filters;
 global using auth_api_login.Application;
 global using auth_api_login.Application.Common;
+global using auth_api_login.Application.Interfaces;
 global using auth_api_login.Domain.Interfaces;
 global using auth_api_login.Infrastructure;
 global using Microsoft.AspNetCore.Authentication.JwtBearer;

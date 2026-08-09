@@ -42,6 +42,17 @@ public static class JwtAuthenticationExtension
                         {
                             context.Fail("Token revogado.");
                         }
+                    },
+                    OnChallenge = async context =>
+                    {
+                        context.HandleResponse();
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        context.Response.ContentType = "application/json";
+                        await context.Response.WriteAsJsonAsync(new ProblemDetails
+                        {
+                            Status = StatusCodes.Status401Unauthorized,
+                            Title = "Token ausente, inválido, expirado ou revogado."
+                        });
                     }
                 };
             });

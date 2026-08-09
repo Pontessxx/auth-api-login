@@ -1,8 +1,3 @@
-using auth_api_login.Application.DTOs.Users;
-using auth_api_login.Application.Interfaces;
-using auth_api_login.Application.Mappings;
-using auth_api_login.Domain.Exceptions;
-
 namespace auth_api_login.Application.Services;
 
 public class UserService : IUserService
@@ -16,18 +11,24 @@ public class UserService : IUserService
         _logger = logger;
     }
 
-    public async Task<UserResponse> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<Result<UserResponse>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdAsync(id, cancellationToken)
-            ?? throw new UserNotFoundException(id);
+        var user = await _userRepository.GetByIdAsync(id, cancellationToken);
+        if (user is null)
+        {
+            return Result<UserResponse>.NotFound($"Usuário '{id}' não encontrado.");
+        }
 
-        return user.ToResponse();
+        return Result<UserResponse>.Success(user.ToResponse());
     }
 
-    public async Task<UserResponse> UpdateAsync(Guid id, UpdateUserRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<UserResponse>> UpdateAsync(Guid id, UpdateUserRequest request, CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdAsync(id, cancellationToken)
-            ?? throw new UserNotFoundException(id);
+        var user = await _userRepository.GetByIdAsync(id, cancellationToken);
+        if (user is null)
+        {
+            return Result<UserResponse>.NotFound($"Usuário '{id}' não encontrado.");
+        }
 
         if (!string.Equals(user.Email, request.Email, StringComparison.OrdinalIgnoreCase))
         {
@@ -38,7 +39,7 @@ public class UserService : IUserService
                     "Atualização recusada para o usuário {UserId}: e-mail {Email} já está em uso.",
                     id,
                     request.Email);
-                throw new EmailAlreadyExistsException(request.Email);
+                return Result<UserResponse>.Conflict($"Já existe um usuário cadastrado com o e-mail '{request.Email}'.");
             }
         }
 
@@ -48,15 +49,20 @@ public class UserService : IUserService
         await _userRepository.UpdateAsync(user, cancellationToken);
         _logger.LogInformation("Usuário {UserId} atualizado.", id);
 
-        return user.ToResponse();
+        return Result<UserResponse>.Success(user.ToResponse());
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var user = await _userRepository.GetByIdAsync(id, cancellationToken)
-            ?? throw new UserNotFoundException(id);
+        var user = await _userRepository.GetByIdAsync(id, cancellationToken);
+        if (user is null)
+        {
+            return Result.NotFound($"Usuário '{id}' não encontrado.");
+        }
 
         await _userRepository.DeleteAsync(user, cancellationToken);
         _logger.LogInformation("Usuário {UserId} excluído.", id);
+
+        return Result.Success();
     }
 }
