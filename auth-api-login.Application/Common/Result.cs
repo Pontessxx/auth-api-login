@@ -4,7 +4,8 @@ public enum ResultErrorType
 {
     Conflict,
     Unauthorized,
-    NotFound
+    NotFound,
+    Validation
 }
 
 public readonly record struct ResultError(ResultErrorType Type, string Message);
@@ -25,6 +26,7 @@ public class Result
     public static Result Conflict(string message) => new(false, new ResultError(ResultErrorType.Conflict, message));
     public static Result Unauthorized(string message) => new(false, new ResultError(ResultErrorType.Unauthorized, message));
     public static Result NotFound(string message) => new(false, new ResultError(ResultErrorType.NotFound, message));
+    public static Result Validation(string message) => new(false, new ResultError(ResultErrorType.Validation, message));
 }
 
 public sealed class Result<T> : Result
@@ -42,4 +44,5 @@ public sealed class Result<T> : Result
     public static new Result<T> Conflict(string message) => new(new ResultError(ResultErrorType.Conflict, message));
     public static new Result<T> Unauthorized(string message) => new(new ResultError(ResultErrorType.Unauthorized, message));
     public static new Result<T> NotFound(string message) => new(new ResultError(ResultErrorType.NotFound, message));
+    public static new Result<T> Validation(string message) => new(new ResultError(ResultErrorType.Validation, message));
 }

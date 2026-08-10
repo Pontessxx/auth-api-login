@@ -10,6 +10,9 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<JwtSettings>>().Value);
 
+        services.Configure<FileStorageOptions>(configuration.GetSection(FileStorageOptions.SectionName));
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<FileStorageOptions>>().Value);
+
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ITokenBlacklistRepository, TokenBlacklistRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();

@@ -8,6 +8,7 @@ global using auth_api_login.Api.Filters;
 global using auth_api_login.Application;
 global using auth_api_login.Application.Common;
 global using auth_api_login.Application.DTOs.Auth;
+global using auth_api_login.Application.DTOs.Files;
 global using auth_api_login.Application.DTOs.Users;
 global using auth_api_login.Application.Interfaces;
 global using auth_api_login.Application.Mappings;

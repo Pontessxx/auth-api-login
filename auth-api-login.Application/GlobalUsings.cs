@@ -1,6 +1,7 @@
 global using System.ComponentModel.DataAnnotations;
 global using auth_api_login.Application.Common;
 global using auth_api_login.Application.DTOs.Auth;
+global using auth_api_login.Application.DTOs.Files;
 global using auth_api_login.Application.DTOs.Users;
 global using auth_api_login.Application.Interfaces;
 global using auth_api_login.Application.Mappings;

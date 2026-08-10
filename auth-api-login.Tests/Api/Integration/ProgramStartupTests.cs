@@ -1,4 +1,5 @@
 using Asp.Versioning.ApiExplorer;
+using Swashbuckle.AspNetCore.Swagger;
 
 namespace auth_api_login.Tests.Api.Integration;
 
@@ -32,5 +33,18 @@ public class ProgramStartupTests
 
         Assert.Equal("'v'VVV", options.GroupNameFormat);
         Assert.True(options.SubstituteApiVersionInUrl);
+    }
+
+    [Fact]
+    public void Startup_GeneratesSwaggerDocumentWithoutThrowing()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var scope = factory.Services.CreateScope();
+
+        var swaggerProvider = scope.ServiceProvider.GetRequiredService<ISwaggerProvider>();
+
+        var document = swaggerProvider.GetSwagger("v1");
+
+        Assert.NotEmpty(document.Paths);
     }
 }

@@ -10,6 +10,7 @@ public static class ResultExtensions
             ResultErrorType.Conflict => StatusCodes.Status409Conflict,
             ResultErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
             ResultErrorType.NotFound => StatusCodes.Status404NotFound,
+            ResultErrorType.Validation => StatusCodes.Status400BadRequest,
             _ => StatusCodes.Status400BadRequest
         };
 
